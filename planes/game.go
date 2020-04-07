@@ -26,12 +26,14 @@ const (
 	playerIconScaleX = 0.05
 	playerIconScaleY = 0.05
 
-	initialVelocity = 0.5
+	initialVelocity = -0.5
+	defaultRotation = 0.01
 )
 
 var bgLayer, playerIcon *ebiten.Image
 
 func init() {
+	fmt.Println("init")
 	tile, _, _ := ebitenutil.NewImageFromFile("planes/assets/bg.jpg", ebiten.FilterDefault)
 	player, _, _ := ebitenutil.NewImageFromFile("planes/assets/icon_orig.png", ebiten.FilterDefault)
 	playerIcon, _ = ebiten.NewImage(32, 32, ebiten.FilterDefault)
@@ -69,71 +71,75 @@ func init() {
 }
 
 type Game struct {
-	x              float64
-	dx             float64
-	y              float64
-	dy             float64
-	bgLayerOffsetY float64
+	heading float64
+	x       float64
+	dx      float64
+	y       float64
+	dy      float64
 }
 
 func NewGame() *Game {
 	return &Game{
-		bgLayerOffsetY: 0.0,
-		dx:             0.0,
-		dy:             initialVelocity,
+		heading: math.Pi / 2,
+		x:       0.0,
+		y:       0.0,
 	}
 }
 
 func (g *Game) Update(screen *ebiten.Image) error {
+
 	if ebiten.IsKeyPressed(ebiten.KeyLeft) && !ebiten.IsKeyPressed(ebiten.KeyRight) {
 		fmt.Println("left")
-		g.dx -= 0.1 * initialVelocity
-		g.dy -= 0.1 * initialVelocity
+		g.rotate(-defaultRotation)
 	} else if ebiten.IsKeyPressed(ebiten.KeyRight) && !ebiten.IsKeyPressed(ebiten.KeyLeft) {
 		fmt.Println("Right")
-		g.dx += 0.1 * initialVelocity
-		g.dy -= 0.1 * initialVelocity
-	} else {
-
+		g.rotate(+defaultRotation)
 	}
-	g.move(screen, g.dx, g.dy)
+	g.move(initialVelocity)
+	return g.Draw(screen)
+}
+func (g *Game) Draw(screen *ebiten.Image) error {
+	screen.DrawImage(bgLayer, &ebiten.DrawImageOptions{})
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(-16, -16)
+	op.GeoM.Rotate(g.heading)
+	op.GeoM.Translate((ScreenWidth/2)+g.x, ScreenHeight-100+g.y)
+	screen.DrawImage(playerIcon, op)
+	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%f", g.x), 0, 0)
+	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%f", g.y), 100, 0)
+	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%f", degrees(g.heading)), 100, 10)
 	return nil
 }
 
-func (g *Game) move(screen *ebiten.Image, dx float64, dy float64) {
-	g.x += dx
-	g.y += dy
-	bgOffsetX := math.Mod(g.x, seamOffsetLimitX)
-	bgOffsetY := math.Mod(g.y, seamOffsetLimitY)
-	bgTran := ebiten.GeoM{}
-	bgTran.Translate(initialSeamOffsetX+bgOffsetX, initialSeamOffsetY+bgOffsetY)
+func (g *Game) move(delta float64) {
+	g.dx, g.dy = delta*math.Cos(g.heading), delta*math.Sin(g.heading)
+	g.x+=g.dx
+	g.y+=g.dy
+	//bgOffsetX := math.Mod(g.x, seamOffsetLimitX)
+	//bgOffsetY := math.Mod(g.y, seamOffsetLimitY)
+	//bgTran := ebiten.GeoM{}
+	//bgTran.Translate(initialSeamOffsetX+bgOffsetX, initialSeamOffsetY+bgOffsetY)
 
-	screen.DrawImage(bgLayer, &ebiten.DrawImageOptions{
-		GeoM:          bgTran,
-		ColorM:        ebiten.ColorM{},
-		CompositeMode: 0,
-		Filter:        0,
-		ImageParts:    nil,
-		Parts:         nil,
-		SourceRect:    nil,
-	})
+	//screen.DrawImage(bgLayer, &ebiten.DrawImageOptions{})
 
-	iconTran := ebiten.TranslateGeo(ScreenWidth/2-16, ScreenHeight-100)
+	//op := &ebiten.DrawImageOptions{}
+	//op.GeoM.Translate(-16, -16)
+	//op.GeoM.Rotate(g.heading)
+	//op.GeoM.Translate(ScreenWidth/2, ScreenHeight-100)
+	//screen.DrawImage(playerIcon, op)
+	//ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%f", g.y), 0, 0)
+	//ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%f", degrees(g.heading)), 100, 10)
+}
 
-	screen.DrawImage(playerIcon, &ebiten.DrawImageOptions{
-		GeoM:          iconTran,
-		ColorM:        ebiten.ColorM{},
-		CompositeMode: 0,
-		Filter:        0,
-		ImageParts:    nil,
-		Parts:         nil,
-		SourceRect:    nil,
-	})
-	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%f", g.y), 0, 0)
-	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%f", g.dx), 100, 10)
-	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%f", g.dy), 0, 10)
+func (g *Game) rotate(dTheta float64) {
+	g.heading += dTheta
+
 }
 
 func (g Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
 	return ScreenWidth, ScreenHeight
+}
+
+func degrees(rad float64) float64 {
+	return rad * 180 / math.Pi
 }
