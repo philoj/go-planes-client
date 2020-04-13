@@ -126,11 +126,6 @@ func (g *Game) Update(screen *ebiten.Image) error {
 		g.Player.rotate(+defaultRotation)
 	} else {
 		g.input = ""
-		if math.Mod(float64(g.Player.Id), 2) == 0.0 {
-			g.Player.rotate(-defaultRotation)
-		} else {
-			g.Player.rotate(defaultRotation)
-		}
 	}
 	g.Player.move(initialVelocity)
 
