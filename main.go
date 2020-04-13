@@ -1,16 +1,31 @@
 package main
 
 import (
+	"flag"
 	"github.com/hajimehoshi/ebiten"
 	"log"
+	"watchYourSix/lobby"
 	"watchYourSix/planes"
 )
 
+var playerId = flag.Int("id", 1, "Set a unique id for each client")
 
 func main() {
-	ebiten.SetWindowSize(planes.ScreenWidth*2, planes.ScreenHeight*2)
+	flag.Parse()
+	log.Println("Player id:", *playerId)
+	game := planes.NewGame(*playerId)
+	// server
+	go lobby.JoinLobby(game)
+
+	// this is for testing only
+	ebiten.SetRunnableOnUnfocused(true)
+
+	//the game ui
+
+	ebiten.SetWindowSize(planes.ScreenWidth, planes.ScreenHeight)
 	ebiten.SetWindowTitle("Watch you Six")
-	if err := ebiten.RunGame(planes.NewGame()); err != nil {
+
+	if err := ebiten.RunGame(game); err != nil {
 		log.Fatal(err)
 	}
 }
