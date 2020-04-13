@@ -4,6 +4,6 @@ The game client. Execute by:
 
 This requires game server to be started already. See: https://code.qburst.com/go-planes/backend-server
 
-For running multiple parallel clients, assign unique integer ids for each:
+For running multiple parallel clients, assign unique integer ids for each (defaults to 1):
 
 `$ go run main.go -id=2 planes lobby`
