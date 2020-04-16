@@ -23,7 +23,7 @@ func JoinLobby(game GameStateBroadcaster) {
 	signal.Notify(interrupt, os.Interrupt)
 
 	u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/ws"}
-	log.Printf("connecting to %s", u.String())
+	//log.Printf("connecting to %s", u.String())
 
 	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	if err != nil {

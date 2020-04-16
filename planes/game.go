@@ -36,36 +36,42 @@ const (
 	playerIconSize      = 64.0
 	playerIconImageSize = 640.0
 	playerIconScale     = playerIconSize / playerIconImageSize
+	blipIconSize      = 64.0
+	blipIconImageSize = 320.0
+	blipIconScale     = blipIconSize / blipIconImageSize
 
-	initialVelocity = 4.0
-	defaultRotation = 0.03
-	cameraRadius    = .3 * ScreenHeight
-	cameraVelocity  = 1.0
+	initialVelocity     = 4
+	defaultAcceleration = 1
+	defaultRotation     = 0.03
+	cameraRadius        = 100.0
+	cameraVelocity      = 1.0
 
 	defaultHeading = -math.Pi / 2
 	defaultX       = 0.0
 	defaultY       = 0.0
 
-	radarRadius = 120.0
+	radarRadius = 280.0
 
 	debugEnabled = false
 )
 
 var bgLayer, playerIcon *ebiten.Image
+var radarBlip *ebiten.Image
 
 func init() {
 	tile, _, _ := ebitenutil.NewImageFromFile("planes/assets/bg.jpg", ebiten.FilterDefault)
 	player, _, _ := ebitenutil.NewImageFromFile("planes/assets/icon_orig.png", ebiten.FilterDefault)
+	rBlip, _, _ := ebitenutil.NewImageFromFile("planes/assets/blip.png", ebiten.FilterDefault)
+	radarBlip, _ = ebiten.NewImage(blipIconSize, blipIconSize, ebiten.FilterDefault)
+	bTran := ebiten.ScaleGeo(blipIconScale, blipIconScale)
+	radarBlip.DrawImage(rBlip, &ebiten.DrawImageOptions{
+		GeoM: bTran,
+	})
+
 	playerIcon, _ = ebiten.NewImage(playerIconSize, playerIconSize, ebiten.FilterDefault)
 	pTran := ebiten.ScaleGeo(playerIconScale, playerIconScale)
 	playerIcon.DrawImage(player, &ebiten.DrawImageOptions{
-		GeoM:          pTran,
-		ColorM:        ebiten.ColorM{},
-		CompositeMode: 0,
-		Filter:        0,
-		ImageParts:    nil,
-		Parts:         nil,
-		SourceRect:    nil,
+		GeoM: pTran,
 	})
 
 	tileCountX := int(seamCountX + 1)
@@ -78,12 +84,6 @@ func init() {
 			bgTileTransform.Translate(float64(j)*ScreenWidth, float64(i)*ScreenHeight)
 			bgLayer.DrawImage(tile, &ebiten.DrawImageOptions{
 				GeoM:          bgTileTransform,
-				ColorM:        ebiten.ColorM{},
-				CompositeMode: 0,
-				Filter:        0,
-				ImageParts:    nil,
-				Parts:         nil,
-				SourceRect:    nil,
 			})
 		}
 	}
@@ -117,6 +117,7 @@ func (g *Game) GetTicker() *chan bool {
 
 func (g *Game) Update(screen *ebiten.Image) error {
 	// update Player
+	g.input = ""
 	if ebiten.IsKeyPressed(ebiten.KeyLeft) && !ebiten.IsKeyPressed(ebiten.KeyRight) {
 		g.input = "left"
 		g.Player.rotate(-defaultRotation)
@@ -124,8 +125,9 @@ func (g *Game) Update(screen *ebiten.Image) error {
 	if ebiten.IsKeyPressed(ebiten.KeyRight) && !ebiten.IsKeyPressed(ebiten.KeyLeft) {
 		g.input = "right"
 		g.Player.rotate(+defaultRotation)
-	} else {
-		g.input = ""
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyUp) {
+		g.Player.move(defaultAcceleration * initialVelocity)
 	}
 	g.Player.move(initialVelocity)
 
@@ -137,11 +139,14 @@ func (g *Game) Update(screen *ebiten.Image) error {
 }
 func (g *Game) Draw(screen *ebiten.Image) error {
 	// draw ui
-	distanceToCamera := cartesianDistance(g.Player.X, g.Player.Y, g.cameraX, g.cameraY)
+	distanceToCamera := CartesianDistance(g.Player.X, g.Player.Y, g.cameraX, g.cameraY)
+	var overshootX, overShootY, rEdgeX, rEdgeY float64
 	if distanceToCamera > cameraRadius {
-		// Player is beyond the edge, move camera
-		g.cameraX += g.Player.Vx * cameraVelocity
-		g.cameraY += g.Player.Vy * cameraVelocity
+		// Player is beyond the edge, move camera in proportion to the overshoot
+		rEdgeX, rEdgeY = BisectLine(g.cameraX, g.cameraY, g.Player.X, g.Player.Y, cameraRadius)
+		overshootX, overShootY = LineLengthXY(rEdgeX, rEdgeY, g.Player.X, g.Player.Y)
+		g.cameraX += overshootX * cameraVelocity
+		g.cameraY += overShootY * cameraVelocity
 	}
 
 	// bg
@@ -164,6 +169,8 @@ func (g *Game) Draw(screen *ebiten.Image) error {
 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%f, %f", g.Player.X, g.Player.Y), 0, 0)
 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%f", degrees(g.Player.Heading)), 0, 10)
 		ebitenutil.DebugPrintAt(screen, g.input, 100, 10)
+		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("os: %f, %f, %f, %f, %f, %f",
+			g.cameraX, g.cameraY, rEdgeX, rEdgeY, overshootX, overShootY), 0, 50)
 	}
 	return nil
 }
@@ -195,7 +202,6 @@ func (g *Game) updateRemotePlayer(dataByte []byte) {
 	vy, _ := strconv.ParseFloat(data[4], 64)
 	h, _ := strconv.ParseFloat(data[5], 64)
 	player := g.remotePlayers[id]
-	log.Println("player", player)
 	if player == nil {
 		// add new p without value for Game
 		p := NewPlayer(id, h, x, y, g)

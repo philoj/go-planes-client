@@ -7,12 +7,53 @@ import (
 	"math"
 )
 
-func cartesianDistance(x1, y1, x2, y2 float64) float64 {
+func CartesianDistance(x1, y1, x2, y2 float64) float64 {
 	return math.Sqrt(((x2 - x1) * (x2 - x1)) + ((y2 - y1) * (y2 - y1)))
 }
 
 func RadialToXY(radius, theta float64) (x, y float64) {
 	return radius * math.Cos(theta), radius * math.Sin(theta)
+}
+
+/*
+Return point (x,y) which bisects the line (x1,y1)-(x2,y2) with distance l from (x1,y1)
+*/
+func BisectLine(x1, y1, x2, y2, d float64) (x, y float64) {
+	lx, ly := x2-x1, y2-y1
+	theta := math.Atan(ly / lx)
+	dx, dy := RadialToXY(d, theta)
+
+	// adjust for the correct trigonometric quadrant
+	if (lx < 0 && dx > 0) || (lx > 0 && dx < 0) {
+		dx = -dx
+	}
+	if (ly < 0 && dy > 0) || (ly > 0 && dy < 0) {
+		dy = -dy
+	}
+	return x1 + dx, y1 + dy
+}
+
+func LineLengthXY(x1, y1, x2, y2 float64) (lx, ly float64) {
+	return x2 - x1, y2 - y1
+}
+
+func Theta(x, y float64) float64 {
+	tan := y / x
+	if tan < 0 {
+		theta := math.Atan(-tan)
+		if y > 0 {
+			return math.Pi - theta
+		} else {
+			return -theta
+		}
+	} else {
+		theta := math.Atan(tan)
+		if y < 0 {
+			return math.Pi + theta
+		} else {
+			return theta
+		}
+	}
 }
 
 const (
@@ -42,4 +83,3 @@ func drawRectangle(screen *ebiten.Image, x float64, y float64, width float64, he
 	ebitenutil.DrawLine(screen, x+width, y+height, x, y+height, c)
 	ebitenutil.DrawLine(screen, x, y+height, x, y, c)
 }
-

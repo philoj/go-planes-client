@@ -4,7 +4,6 @@ import (
 	"github.com/hajimehoshi/ebiten"
 	"github.com/hajimehoshi/ebiten/ebitenutil"
 	"golang.org/x/image/colornames"
-	"log"
 	"math"
 )
 
@@ -30,7 +29,7 @@ func NewPlayer(id int, heading, X, Y float64, game *Game) *Player {
 }
 
 func (p *Player) Update(x, y, vx, vy, heading float64) {
-	log.Println("Updating player", x, y)
+	//log.Println("Updating player", x, y)
 	p.X = x
 	p.Y = y
 	p.Vx = vx
@@ -40,28 +39,27 @@ func (p *Player) Update(x, y, vx, vy, heading float64) {
 
 func (p *Player) Draw(screen *ebiten.Image) {
 	// draw Player
-	x := p.X - p.Game.cameraX
-	y := p.Y - p.Game.cameraY
-	if !p.isRemotePlayer || (x > minX && x < maxX && y > minY && y < maxY) {
+	lx := p.X - p.Game.cameraX
+	ly := p.Y - p.Game.cameraY
+	if !p.isRemotePlayer || (lx > minX && lx < maxX && ly > minY && ly < maxY) {
 		playerOptions := &ebiten.DrawImageOptions{}
-		playerOptions.GeoM.Translate(-playerIconSize, -playerIconSize)
+		playerOptions.GeoM.Translate(-playerIconSize/2, -playerIconSize/2)
 		playerOptions.GeoM.Rotate(p.Heading)
-		playerOptions.GeoM.Translate(maxX+x, maxY+y)
+		playerOptions.GeoM.Translate(maxX+lx, maxY+ly)
 		screen.DrawImage(playerIcon, playerOptions)
 	} else if p.isRemotePlayer {
-		// remote player outside camera. draw a pointer
-		theta := math.Atan(y / x)
-		blipX, blipY := RadialToXY(radarRadius, theta)
 
-		// adjust for the sign inversions possible in trigonometry
-		if (x < 0 && blipX > 0) || (x > 0 && blipX < 0) {
-			blipX = -blipX
+		blipX, blipY := BisectLine(0, 0, lx, ly, radarRadius)
+		blipTran := ebiten.TranslateGeo(-blipIconSize/2, -blipIconSize/2)
+		blipTran.Rotate(Theta(blipX, blipY))
+		blipTran.Translate(maxX+blipX, maxY+blipY)
+		screen.DrawImage(radarBlip, &ebiten.DrawImageOptions{
+			GeoM: blipTran,
+		})
+		if debugEnabled {
+			drawCircle(screen, maxX+blipX, maxY+blipY, 20, colornames.Black)
+			ebitenutil.DrawLine(screen, maxX, maxY, maxX+lx, maxY+ly, colornames.Black)
 		}
-		if (y < 0 && blipY > 0) || (y > 0 && blipY < 0) {
-			blipY = -blipY
-		}
-		drawCircle(screen, maxX+blipX, maxY+blipY, 20, colornames.Black)
-		ebitenutil.DrawLine(screen, maxX, maxY, maxX+x, maxY+y, colornames.Black)
 	}
 }
 
