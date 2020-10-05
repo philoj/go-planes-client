@@ -1,12 +1,11 @@
 package planes
 
 import (
-	"log"
 	"math"
 )
 
 type TrackerInterface interface {
-	UpdateTarget(delta float64)
+	UpdateTarget()
 }
 
 func NewSimpleTracker(follower, leader PointObjectInterface, width, height, velocity float64) TrackerInterface {
@@ -27,7 +26,7 @@ type SimpleTracker struct {
 	velocity float64
 }
 
-func (t *SimpleTracker) UpdateTarget(delta float64) {
+func (t *SimpleTracker) UpdateTarget() {
 	d := AxialDistance(t.follower.Location(), t.leader.Location())
 	if math.Abs(d.I) > t.maxX || math.Abs(d.J) > t.maxY {
 		b := BisectRectangle(t.follower.Location(), t.leader.Location(), Point{
@@ -39,7 +38,6 @@ func (t *SimpleTracker) UpdateTarget(delta float64) {
 		})
 		v := AxialDistance(b, t.leader.Location())
 		h := Theta(v)
-		log.Println("tracker ",v, h)
 		t.follower.Turn(h)
 		t.follower.Move(v.Size() * t.velocity)
 	}

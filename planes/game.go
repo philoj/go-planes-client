@@ -37,6 +37,9 @@ const (
 	BgImageAssetId   = "tile"
 	IconImageAssetId = "player"
 	BlipImageAssetId = "blip"
+
+	leftTouchButtonId  = "left"
+	rightTouchButtonId = "right"
 )
 
 func NewGame(debug bool) *Planes {
@@ -52,6 +55,10 @@ func NewGame(debug bool) *Planes {
 		viewPortLoading: sync.Once{},
 		initComplete:    make(chan bool),
 		debug:           debug,
+		touch: &touchController{
+			buttons: make(map[string]*buttonController),
+			state:   make(map[string]bool),
+		},
 	}
 	game.player = NewPlayer(0, defaultHeading, defaultX, defaultY)
 	go game.watchLobby()
@@ -67,51 +74,42 @@ type Planes struct {
 
 	Tick  chan bool
 	input string
+	touch *touchController
 
 	viewPortLoading sync.Once
 	initComplete    chan bool
 	images          map[string]*imageInfo
-
-	viewPortWidth  int
-	viewPortHeight int
-	camera         *camera
-	cameraTracker  TrackerInterface
-
-	tileHeight float64
-	tileWidth  float64
-	bgOffsetY  float64
-	bgOffsetX  float64
+	camera          *camera
+	cameraTracker   TrackerInterface
 
 	radarRadius float64
 }
-type imageScale struct {
-	x float64
-	y float64
-}
 type imageSize struct {
-	x int
-	y int
+	width, height int
 }
 type imageInfo struct {
-	path         string
-	originalSize imageSize
-	targetSize   imageSize
-	scale        imageScale
-	image        *ebiten.Image
+	path                     string
+	originalSize, targetSize imageSize
+	image                    *ebiten.Image
 }
 
 func (g *Planes) Update(screen *ebiten.Image) error {
 	// update Player
 	g.input = ""
-	if ebiten.IsKeyPressed(ebiten.KeyLeft) && !ebiten.IsKeyPressed(ebiten.KeyRight) {
+	g.touch.ProcessTouch()
+
+	if (ebiten.IsKeyPressed(ebiten.KeyLeft) && !ebiten.IsKeyPressed(ebiten.KeyRight)) ||
+		g.touch.IsButtonPressed(leftTouchButtonId) && !g.touch.IsButtonPressed(rightTouchButtonId) {
 		g.input = "left"
 		g.player.Rotate(-defaultRotation)
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyRight) && !ebiten.IsKeyPressed(ebiten.KeyLeft) {
+	if (ebiten.IsKeyPressed(ebiten.KeyRight) && !ebiten.IsKeyPressed(ebiten.KeyLeft)) ||
+		g.touch.IsButtonPressed(rightTouchButtonId) && !g.touch.IsButtonPressed(leftTouchButtonId) {
 		g.input = "right"
 		g.player.Rotate(+defaultRotation)
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyUp) {
+	if ebiten.IsKeyPressed(ebiten.KeyUp) ||
+		g.touch.IsButtonPressed(leftTouchButtonId) && g.touch.IsButtonPressed(rightTouchButtonId) {
 		g.input += "+up"
 		g.player.Move(defaultAcceleration * initialVelocity)
 	}
@@ -125,13 +123,13 @@ func (g *Planes) Update(screen *ebiten.Image) error {
 	case <-g.initComplete:
 	}
 	// update camera location
-	g.cameraTracker.UpdateTarget(initialVelocity)
+	g.cameraTracker.UpdateTarget()
 	return g.Draw(screen)
 }
 func (g *Planes) Draw(screen *ebiten.Image) error {
 	// background
-	bgTranslation := g.camera.location.Vector().Negate()
-	laySquareTiledImage(screen, g.images[BgImageAssetId].image, bgTranslation, g.tileWidth, -1)
+	bgTranslation := g.camera.location.Vector().Negate() // negative of camera location
+	laySquareTiledImage(screen, g.images[BgImageAssetId].image, bgTranslation, g.camera.width, -1)
 
 	// player
 	g.camera.DrawObject(screen, g.images[IconImageAssetId].image, *g.player.PointObject)
@@ -152,8 +150,8 @@ func (g *Planes) Draw(screen *ebiten.Image) error {
 }
 
 func (g *Planes) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
+	// viewport is initialized in first call
 	go g.viewPortLoading.Do(func() { g.loadViewPort(outsideWidth, outsideHeight) })
-	log.Print("Layout")
 	return outsideWidth, outsideHeight
 }
 
@@ -208,73 +206,45 @@ func (g *Planes) watchLobby() {
 }
 
 func (g *Planes) loadViewPort(outsideWidth, outsideHeight int) {
-	log.Print("view port ", outsideWidth, outsideHeight)
-	g.viewPortWidth = outsideWidth
 	g.camera.width = float64(outsideWidth)
-	g.viewPortHeight = outsideHeight
 	g.camera.height = float64(outsideHeight)
-
-	g.tileHeight = g.camera.width
-	g.tileWidth = g.camera.width
-	g.bgOffsetX = -g.camera.width
-	g.bgOffsetY = -g.camera.width
 	g.radarRadius = g.camera.height / 2
 
-	// image sizes
-	// fixme avoid either tsize/scale calc
-	iconSize := g.viewPortHeight / 10
-	iconScale := float64(iconSize) / playerIconImageSize
-	bgScale := 3 * g.camera.width / bgImageSize
+	// load images
+	iconSize := outsideHeight / 10
 	g.images = map[string]*imageInfo{
 		BgImageAssetId: {
 			path: "/bg.jpg",
 			originalSize: imageSize{
-				x: bgImageSize,
-				y: bgImageSize,
+				width:  bgImageSize,
+				height: bgImageSize,
 			},
 			targetSize: imageSize{
-				x: g.viewPortWidth * 3,
-				y: g.viewPortWidth * 3,
-			},
-			scale: imageScale{
-				x: bgScale,
-				y: bgScale,
+				width:  outsideWidth * 3,
+				height: outsideWidth * 3,
 			},
 		},
 		IconImageAssetId: {
 			path: "/icon_orig.png",
 			originalSize: imageSize{
-				x: playerIconImageSize,
-				y: playerIconImageSize,
+				width:  playerIconImageSize,
+				height: playerIconImageSize,
 			},
 			targetSize: imageSize{
-				x: iconSize, y: iconSize,
-			},
-			scale: imageScale{
-				x: iconScale,
-				y: iconScale,
+				width: iconSize, height: iconSize,
 			},
 		},
 		BlipImageAssetId: {
 			path: "/blip.png",
 			originalSize: imageSize{
-				x: blipIconImageSize,
-				y: blipIconImageSize,
+				width:  blipIconImageSize,
+				height: blipIconImageSize,
 			},
 			targetSize: imageSize{
-				x: iconSize, y: iconSize,
-			},
-			scale: imageScale{
-				x: iconScale,
-				y: iconScale,
+				width: iconSize, height: iconSize,
 			},
 		},
 	}
-	g.loadImages()
-	g.cameraTracker = NewSimpleTracker(g.camera, g.player, g.camera.width/2, g.camera.width/2, cameraVelocity)
-	close(g.initComplete)
-}
-func (g *Planes) loadImages() {
 	embeddedFs, err := fs.New()
 	if err != nil {
 		log.Fatal(err)
@@ -284,19 +254,85 @@ func (g *Planes) loadImages() {
 		if err != nil {
 			log.Fatal(fmt.Errorf("fail to open %s: %s", imgInf.path, err))
 		}
-		defer f.Close()
+		//noinspection GoDeferInLoop
+		defer func() {
+			if err := f.Close(); err != nil {
+				log.Fatal(fmt.Errorf("fail to close %s: %s", imgInf.path, err))
+			}
+		}()
 		i, _, err := image.Decode(f)
 		if err != nil {
 			log.Fatal(fmt.Errorf("fail to decode %s: %s", imgInf.path, err))
 		}
 		original, _ := ebiten.NewImageFromImage(i, ebiten.FilterDefault)
-		target, _ := ebiten.NewImage(imgInf.targetSize.x, imgInf.targetSize.y, ebiten.FilterDefault)
+		canvas, _ := ebiten.NewImage(imgInf.targetSize.width, imgInf.targetSize.height, ebiten.FilterDefault)
 		transform := ebiten.GeoM{}
-		transform.Scale(imgInf.scale.x, imgInf.scale.y)
-		_ = target.DrawImage(original, &ebiten.DrawImageOptions{
+		transform.Scale(
+			float64(imgInf.targetSize.width)/float64(imgInf.originalSize.width),
+			float64(imgInf.targetSize.height)/float64(imgInf.originalSize.height))
+		canvas.DrawImage(original, &ebiten.DrawImageOptions{
 			GeoM: transform,
 		})
-		g.images[imgId].image = target
+		g.images[imgId].image = canvas
 	}
-	log.Print("images loaded")
+
+	g.cameraTracker = NewSimpleTracker(g.camera, g.player, g.camera.width/2, g.camera.width/2, cameraVelocity)
+
+	// touch buttons
+	buttons := []touchButton{
+		{
+			id: leftTouchButtonId,
+			location: Point{
+				X: 0,
+				Y: 0,
+			},
+			relativeGeometry: ClosedPolygon{
+				Point{
+					X: 0,
+					Y: 0,
+				},
+				Point{
+					X: g.camera.width / 2,
+					Y: 0,
+				},
+				Point{
+					X: g.camera.width / 2,
+					Y: g.camera.height,
+				},
+				Point{
+					X: 0,
+					Y: g.camera.height,
+				},
+			},
+		},
+		{
+			id: rightTouchButtonId,
+			location: Point{
+				X: g.camera.width / 2,
+				Y: 0,
+			},
+			relativeGeometry: ClosedPolygon{
+				Point{
+					X: 0,
+					Y: 0,
+				},
+				Point{
+					X: g.camera.width / 2,
+					Y: 0,
+				},
+				Point{
+					X: g.camera.width / 2,
+					Y: g.camera.height,
+				},
+				Point{
+					X: 0,
+					Y: g.camera.height,
+				},
+			},
+		},
+	}
+	for _, b := range buttons {
+		g.touch.Mount(&b)
+	}
+	close(g.initComplete)
 }

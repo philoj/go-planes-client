@@ -9,8 +9,7 @@ import (
 )
 
 type Point struct {
-	X float64
-	Y float64
+	X, Y float64
 }
 
 func (p Point) Vector() Vector {
@@ -21,8 +20,7 @@ func (p Point) Vector() Vector {
 }
 
 type Vector struct {
-	I float64
-	J float64
+	I, J float64
 }
 
 func (v Vector) Negate() Vector {
@@ -39,6 +37,29 @@ func (v Vector) Add(v1 Vector) Vector {
 }
 func (v Vector) Size() float64 {
 	return math.Sqrt((v.I * v.I) + (v.J * v.J))
+}
+func (v Vector) Point() Point {
+	return Point{X: v.I, Y: v.J}
+}
+
+type ClosedPolygon []Point
+
+func (pg ClosedPolygon) Inside(pt Point) bool {
+	if len(pg) < 3 {
+		return false
+	}
+	in := rayIntersectsSegment(pt, pg[len(pg)-1], pg[0])
+	for i := 1; i < len(pg); i++ {
+		if rayIntersectsSegment(pt, pg[i-1], pg[i]) {
+			in = !in
+		}
+	}
+	return in
+}
+
+func rayIntersectsSegment(p, a, b Point) bool {
+	return (a.Y > p.Y) != (b.Y > p.Y) &&
+		p.X < (b.X-a.X)*(p.Y-a.Y)/(b.Y-a.Y)+a.X
 }
 
 func CartesianDistance(x1, y1, x2, y2 float64) float64 {
