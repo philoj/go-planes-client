@@ -4,25 +4,20 @@ import (
 	"flag"
 	"github.com/hajimehoshi/ebiten"
 	"log"
-	"watchYourSix/lobby"
 	"watchYourSix/planes"
 )
 
 var playerId = flag.Int("id", 1, "Set a unique id for each client")
-
+var screenWidth = flag.Int("w", 600, "Screen Width in pixels")
+var screenHeight = flag.Int("h", 600, "Screen height in pixels")
+var debug = flag.Bool("debug", false, "Debug enabled(default false)")
 func main() {
 	flag.Parse()
 	log.Println("Player id:", *playerId)
-	game := planes.NewGame(*playerId)
-	// server
-	go lobby.JoinLobby(game)
+	game := planes.NewGame(*debug)
 
-	// this is for testing only
 	ebiten.SetRunnableOnUnfocused(true)
-
-	//the game ui
-
-	ebiten.SetWindowSize(planes.ScreenWidth, planes.ScreenHeight)
+	ebiten.SetWindowSize(*screenWidth, *screenHeight)
 	ebiten.SetWindowTitle("Watch you Six")
 
 	if err := ebiten.RunGame(game); err != nil {

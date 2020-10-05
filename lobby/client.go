@@ -10,6 +10,7 @@ import (
 )
 
 var Lobby = make(chan []byte)
+var LobbyStatus bool
 
 type GameStateBroadcaster interface {
 	GetState() []byte
@@ -17,6 +18,7 @@ type GameStateBroadcaster interface {
 }
 
 func JoinLobby(game GameStateBroadcaster) {
+	log.Print("JoinLobby")
 	// original reference: https://github.com/gorilla/websocket/blob/master/examples/echo/client.go
 	// websocket client
 	interrupt := make(chan os.Signal, 1)
@@ -25,38 +27,41 @@ func JoinLobby(game GameStateBroadcaster) {
 	u := url.URL{Scheme: "ws", Host: "localhost:8080", Path: "/ws"}
 	//log.Printf("connecting to %s", u.String())
 
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-	if err != nil {
-		log.Fatal("dial:", err)
-		panic(err)
-	}
-	defer c.Close()
-
 	done := make(chan struct{})
+	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	if err == nil {
+		LobbyStatus = true
+		defer c.Close()
 
-	go func() {
-		defer close(done)
-		for {
-			_, gameState, err := c.ReadMessage()
-			if err != nil {
-				log.Println("read:", err)
-				panic(err)
+		go func() {
+			defer close(done)
+			for {
+				_, gameState, err := c.ReadMessage()
+				if err != nil {
+					log.Print("read fail:", err)
+					LobbyStatus = false
+					break
+				}
+				//log.Println("recv:", gameState)
+				Lobby <- gameState
 			}
-			//log.Println("recv:", gameState)
-			Lobby <- gameState
-		}
-	}()
-
+		}()
+	} else {
+		log.Print("dial fail:", err)
+		LobbyStatus = false
+	}
+	ticker := *game.GetTicker()
 	for {
 		select {
 		case <-done:
 			return
-		case _ = <-*game.GetTicker():
-			//log.Println("Writing state")
-			err := c.WriteMessage(websocket.TextMessage, game.GetState())
-			if err != nil {
-				log.Println("write:", err)
-				panic(err)
+		case _ = <-ticker:
+			if LobbyStatus {
+				err := c.WriteMessage(websocket.TextMessage, game.GetState())
+				if err != nil {
+					log.Print("write fail:", err)
+					LobbyStatus = false
+				}
 			}
 
 		// os interrupt, say Ctrl-C
@@ -65,10 +70,12 @@ func JoinLobby(game GameStateBroadcaster) {
 
 			// Cleanly close the connection by sending a close message and then
 			// waiting (with timeout) for the lobby to close the connection.
-			err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-			if err != nil {
-				log.Println("write close:", err)
-				panic(err)
+			if LobbyStatus {
+				err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+				if err != nil {
+					log.Print("write close fail", err)
+					LobbyStatus = false
+				}
 			}
 			select {
 			case <-done:
