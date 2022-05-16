@@ -2,8 +2,8 @@ package mark1android
 
 import (
 	"github.com/hajimehoshi/ebiten/mobile"
+	"goplanesclient/planes"
 	"log"
-	"watchYourSix/planes"
 )
 
 func init() {
@@ -18,4 +18,5 @@ func init() {
 //
 // gomobile doesn't compile a package that doesn't include any exported function.
 // Dummy forces gomobile to compile this package.
+//goland:noinspection GoUnusedExportedFunction
 func Dummy() {}

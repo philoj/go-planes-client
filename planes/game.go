@@ -5,6 +5,7 @@ import (
 	"github.com/hajimehoshi/ebiten"
 	"github.com/hajimehoshi/ebiten/ebitenutil"
 	"github.com/rakyll/statik/fs"
+	"goplanesclient/lobby"
 	"image"
 	_ "image/jpeg" // required for the image file loading to work. see ebitenutil.NewImageFromFile
 	_ "image/png"
@@ -13,9 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"watchYourSix/lobby"
 
-	_ "watchYourSix/statik"
+	_ "goplanesclient/statik"
 )
 
 const (
