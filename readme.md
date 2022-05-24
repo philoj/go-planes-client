@@ -4,6 +4,7 @@ The game client. Execute by:
 
 This requires game server to be started already.
 
-#Screenshots
+# Screenshots
+
 ![](screenshots/Screenshot-single-1.png)
 ![](screenshots/Screenshot-single-2.png)
