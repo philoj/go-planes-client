@@ -1,4 +1,8 @@
-The game client. Execute by:
+The game client. 
+
+The server code can be found [here](https://github.com/philoj/go-planes-server)
+
+Execute by:
 
 `$ go run main.go [id=<clientId>]`
 
