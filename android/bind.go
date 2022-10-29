@@ -1,6 +1,7 @@
 package mark1android
 
 import (
+	"fmt"
 	"github.com/hajimehoshi/ebiten/mobile"
 	"goplanesclient/game"
 	"log"
@@ -10,7 +11,9 @@ func init() {
 	// yourgame.Game must implement mobile.Game (= ebiten.Game) interface.
 	// For more details, see
 	// * https://pkg.go.dev/github.com/hajimehoshi/ebiten?tab=doc#Game
-	mobile.SetGame(game.NewGame(1, false, "", "")) // FIXME change NewGame arguments
+	plyerId := 1
+	path := fmt.Sprintf("/lobby/%d", plyerId)
+	mobile.SetGame(game.NewGame(plyerId, false, "0.0.0.0:8080", path))
 	log.Print("bind complete")
 }
 
