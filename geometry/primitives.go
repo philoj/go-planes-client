@@ -4,17 +4,6 @@ import (
 	"math"
 )
 
-type Point struct {
-	X, Y float64
-}
-
-func (p Point) Vector() Vector {
-	return Vector{
-		I: p.X,
-		J: p.Y,
-	}
-}
-
 type Vector struct {
 	I, J float64
 }
@@ -34,21 +23,18 @@ func (v Vector) Add(v1 Vector) Vector {
 func (v Vector) Size() float64 {
 	return math.Sqrt((v.I * v.I) + (v.J * v.J))
 }
-func (v Vector) Point() Point {
-	return Point{X: v.I, Y: v.J}
-}
 
 type Rectangle struct {
 	Width, Height float64
 }
 
 type ClosedCurve interface {
-	Inside(p Point) bool
+	Inside(p Vector) bool
 }
 
-type ClosedPolygon []Point
+type ClosedPolygon []Vector
 
-func (pg ClosedPolygon) Inside(pt Point) bool {
+func (pg ClosedPolygon) Inside(pt Vector) bool {
 	if len(pg) < 3 {
 		return false
 	}

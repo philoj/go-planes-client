@@ -92,23 +92,23 @@ func (g *Planes) Update(screen *ebiten.Image) error {
 }
 func (g *Planes) Draw(screen *ebiten.Image) error {
 	// background
-	bgTranslation := g.camera.Location().Vector().Negate() // negative of camera location
-	plot.LaySquareTiledImage(screen, g.images[BgImageAssetId].image, bgTranslation, g.camera.Width, -1)
+	bgTranslation := g.camera.Location().Negate() // negative of camera location
+	plot.LaySquareTiledImage(screen, g.images[bgImageAssetId].image, bgTranslation, g.camera.Width, -1)
 
 	// player
-	g.camera.DrawObject(screen, g.images[IconImageAssetId].image, g.player.Mover)
+	g.camera.DrawObject(screen, g.images[iconImageAssetId].image, g.player.Mover)
 
 	// draw other players
 	for id := range g.remotePlayers {
-		g.camera.DrawObject(screen, g.images[IconImageAssetId].image, g.remotePlayers[id].Mover)
+		g.camera.DrawObject(screen, g.images[iconImageAssetId].image, g.remotePlayers[id].Mover)
 	}
 
 	// debug info
 	if g.debug {
-		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("players X: %f Y: %f H: %f", g.player.Location().X, g.player.Location().Y, geometry.Degrees(g.player.Heading())), 0, 0)
+		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("players X: %f Y: %f H: %f", g.player.Location().I, g.player.Location().J, geometry.Degrees(g.player.Heading())), 0, 0)
 		ebitenutil.DebugPrintAt(screen, g.input, 100, 10)
 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("camera X: %f Y: %f",
-			g.camera.Mover.Location().X, g.camera.Mover.Location().Y), 0, 50)
+			g.camera.Mover.Location().I, g.camera.Mover.Location().J), 0, 50)
 	}
 	return nil
 }
@@ -123,8 +123,8 @@ func (g *Planes) GetState() []byte {
 	return []byte(fmt.Sprintf(
 		"%d,%f,%f,%f,%f,%f",
 		g.player.Id,
-		g.player.Location().X,
-		g.player.Location().Y,
+		g.player.Location().I,
+		g.player.Location().J,
 		g.player.Velocity().I,
 		g.player.Velocity().J,
 		g.player.Heading(),
@@ -179,14 +179,14 @@ func (g *Planes) loadViewPort(outsideWidth, outsideHeight int) {
 		// Calculate image render sizes
 		g.images[imgId].targetSize = imageSize{}
 		switch imgId {
-		case BgImageAssetId:
+		case bgImageAssetId:
 			size := outsideWidth * 3
 			g.images[imgId].targetSize.width, g.images[imgId].targetSize.height = size, size
 			break
-		case IconImageAssetId:
+		case iconImageAssetId:
 			g.images[imgId].targetSize.width, g.images[imgId].targetSize.height = iconSize, iconSize
 			break
-		case BlipImageAssetId:
+		case blipImageAssetId:
 			g.images[imgId].targetSize.width, g.images[imgId].targetSize.height = iconSize, iconSize
 			break
 		}

@@ -30,12 +30,12 @@ type SimpleTracker struct {
 func (t *SimpleTracker) UpdateFollower() {
 	d := geometry.AxialDistance(t.follower.Location(), t.leader.Location())
 	if math.Abs(d.I) > t.maxX || math.Abs(d.J) > t.maxY {
-		b := geometry.BisectRectangle(t.follower.Location(), t.leader.Location(), geometry.Point{
-			X: t.follower.Location().X - t.maxX,
-			Y: t.follower.Location().Y - t.maxY,
-		}, geometry.Point{
-			X: t.follower.Location().X + t.maxX,
-			Y: t.follower.Location().Y + t.maxY,
+		b := geometry.BisectRectangle(t.follower.Location(), t.leader.Location(), geometry.Vector{
+			I: t.follower.Location().I - t.maxX,
+			J: t.follower.Location().J - t.maxY,
+		}, geometry.Vector{
+			I: t.follower.Location().I + t.maxX,
+			J: t.follower.Location().J + t.maxY,
 		})
 		v := geometry.AxialDistance(b, t.leader.Location())
 		h := geometry.Theta(v)

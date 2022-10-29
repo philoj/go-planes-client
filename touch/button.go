@@ -5,14 +5,14 @@ import "goplanesclient/geometry"
 type Button interface {
 	geometry.ClosedCurve
 	Id() string
-	Location() geometry.Point
+	Location() geometry.Vector
 	Shape() geometry.ClosedPolygon
 }
 
-func NewButton(id string, location geometry.Point, shape geometry.ClosedPolygon) Button {
+func NewButton(id string, location geometry.Vector, shape geometry.ClosedPolygon) Button {
 	absShape := make(geometry.ClosedPolygon, len(shape))
 	for i, p := range shape {
-		absShape[i] = p.Vector().Add(location.Vector()).Point()
+		absShape[i] = p.Add(location)
 	}
 	return &touchButton{
 		ClosedPolygon: absShape,
@@ -25,7 +25,7 @@ func NewButton(id string, location geometry.Point, shape geometry.ClosedPolygon)
 type touchButton struct {
 	geometry.ClosedPolygon
 	id       string
-	location geometry.Point
+	location geometry.Vector
 	shape    geometry.ClosedPolygon
 }
 
@@ -33,7 +33,7 @@ func (b *touchButton) Id() string {
 	return b.id
 }
 
-func (b *touchButton) Location() geometry.Point {
+func (b *touchButton) Location() geometry.Vector {
 	return b.location
 }
 

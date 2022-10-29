@@ -18,9 +18,9 @@ const (
 )
 
 const (
-	BgImageAssetId   = "tile"
-	IconImageAssetId = "players"
-	BlipImageAssetId = "blip"
+	bgImageAssetId   = "tile"
+	iconImageAssetId = "players"
+	blipImageAssetId = "blip"
 
 	leftTouchButtonId  = "left"
 	rightTouchButtonId = "right"

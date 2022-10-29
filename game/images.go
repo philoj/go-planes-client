@@ -13,21 +13,21 @@ type imageInfo struct {
 
 var (
 	images = map[string]*imageInfo{
-		BgImageAssetId: {
+		bgImageAssetId: {
 			path: "/bg.jpg",
 			originalSize: imageSize{
 				width:  bgImageSize,
 				height: bgImageSize,
 			},
 		},
-		IconImageAssetId: {
+		iconImageAssetId: {
 			path: "/icon_orig.png",
 			originalSize: imageSize{
 				width:  playerIconImageSize,
 				height: playerIconImageSize,
 			},
 		},
-		BlipImageAssetId: {
+		blipImageAssetId: {
 			path: "/blip.png",
 			originalSize: imageSize{
 				width:  blipIconImageSize,

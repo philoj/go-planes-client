@@ -1,6 +1,6 @@
 package geometry
 
-func rayIntersectsSegment(p, a, b Point) bool {
-	return (a.Y > p.Y) != (b.Y > p.Y) &&
-		p.X < (b.X-a.X)*(p.Y-a.Y)/(b.Y-a.Y)+a.X
+func rayIntersectsSegment(p, a, b Vector) bool {
+	return (a.J > p.J) != (b.J > p.J) &&
+		p.I < (b.I-a.I)*(p.J-a.J)/(b.J-a.J)+a.I
 }

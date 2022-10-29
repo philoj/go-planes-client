@@ -8,7 +8,7 @@ import (
 
 type Controller interface {
 	Mount(b Button)
-	Locate(p geometry.Point) string
+	Locate(p geometry.Vector) string
 	Read()
 	IsButtonPressed(id string) bool
 }
@@ -31,7 +31,7 @@ func (c *touchController) Mount(b Button) {
 	c.buttons[b.Id()] = b
 }
 
-func (c *touchController) Locate(p geometry.Point) string {
+func (c *touchController) Locate(p geometry.Vector) string {
 	for id, b := range c.buttons {
 		if b.Inside(p) {
 			return id
@@ -46,7 +46,7 @@ func (c *touchController) Read() {
 		x, y := ebiten.TouchPosition(tid)
 		if x != 0 && y != 0 {
 			// todo save this conversion?
-			p := geometry.Point{X: float64(x), Y: float64(y)}
+			p := geometry.Vector{I: float64(x), J: float64(y)}
 			for id, b := range c.buttons {
 				if b.Inside(p) {
 					touchedIds[id] = true
