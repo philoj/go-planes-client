@@ -10,3 +10,29 @@ type imageInfo struct {
 	originalSize, targetSize imageSize
 	image                    *ebiten.Image
 }
+
+var (
+	images = map[string]*imageInfo{
+		BgImageAssetId: {
+			path: "/bg.jpg",
+			originalSize: imageSize{
+				width:  bgImageSize,
+				height: bgImageSize,
+			},
+		},
+		IconImageAssetId: {
+			path: "/icon_orig.png",
+			originalSize: imageSize{
+				width:  playerIconImageSize,
+				height: playerIconImageSize,
+			},
+		},
+		BlipImageAssetId: {
+			path: "/blip.png",
+			originalSize: imageSize{
+				width:  blipIconImageSize,
+				height: blipIconImageSize,
+			},
+		},
+	}
+)

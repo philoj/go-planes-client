@@ -31,6 +31,7 @@ func NewGame(playerId int, debug bool, host, path string) *Planes {
 		initComplete:     make(chan bool),
 		debug:            debug,
 		touch:            touch.NewTouchController(),
+		images:           images,
 	}
 	game.player = players.NewPlayer(playerId, true, defaultX, defaultY, defaultHeading, 0, 0)
 	go game.watchLobby()
@@ -83,9 +84,8 @@ func (g *Planes) Update(screen *ebiten.Image) error {
 	g.tick <- true
 
 	// draw
-	select {
-	case <-g.initComplete:
-	}
+	<-g.initComplete
+
 	// update camera location
 	g.cameraTracker.UpdateFollower()
 	return g.Draw(screen)
@@ -159,10 +159,8 @@ func (g *Planes) updateRemotePlayer(dataByte []byte) {
 
 func (g *Planes) watchLobby() {
 	for {
-		select {
-		case p := <-lobby.Lobby:
-			g.updateRemotePlayer(p)
-		}
+		p := <-lobby.Lobby
+		g.updateRemotePlayer(p)
 	}
 }
 
@@ -172,45 +170,28 @@ func (g *Planes) loadViewPort(outsideWidth, outsideHeight int) {
 	g.radarRadius = fHeight / 2
 
 	// load images
-	iconSize := outsideHeight / 10
-	g.images = map[string]*imageInfo{
-		BgImageAssetId: {
-			path: "/bg.jpg",
-			originalSize: imageSize{
-				width:  bgImageSize,
-				height: bgImageSize,
-			},
-			targetSize: imageSize{
-				width:  outsideWidth * 3,
-				height: outsideWidth * 3,
-			},
-		},
-		IconImageAssetId: {
-			path: "/icon_orig.png",
-			originalSize: imageSize{
-				width:  playerIconImageSize,
-				height: playerIconImageSize,
-			},
-			targetSize: imageSize{
-				width: iconSize, height: iconSize,
-			},
-		},
-		BlipImageAssetId: {
-			path: "/blip.png",
-			originalSize: imageSize{
-				width:  blipIconImageSize,
-				height: blipIconImageSize,
-			},
-			targetSize: imageSize{
-				width: iconSize, height: iconSize,
-			},
-		},
-	}
 	embeddedFs, err := fs.New()
 	if err != nil {
 		log.Fatal(err)
 	}
+	iconSize := outsideHeight / 10
 	for imgId, imgInf := range g.images {
+		// Calculate image render sizes
+		g.images[imgId].targetSize = imageSize{}
+		switch imgId {
+		case BgImageAssetId:
+			size := outsideWidth * 3
+			g.images[imgId].targetSize.width, g.images[imgId].targetSize.height = size, size
+			break
+		case IconImageAssetId:
+			g.images[imgId].targetSize.width, g.images[imgId].targetSize.height = playerIconImageSize, playerIconImageSize
+			break
+		case BlipImageAssetId:
+			g.images[imgId].targetSize.width, g.images[imgId].targetSize.height = iconSize, iconSize
+			break
+		}
+
+		// Open image files from embedded assets
 		f, err := embeddedFs.Open(imgInf.path)
 		if err != nil {
 			log.Fatal(fmt.Errorf("fail to open %s: %s", imgInf.path, err))
@@ -221,72 +202,29 @@ func (g *Planes) loadViewPort(outsideWidth, outsideHeight int) {
 				log.Fatal(fmt.Errorf("fail to close %s: %s", imgInf.path, err))
 			}
 		}()
+
+		// Decode and create im memory ebiten images
 		i, _, err := image.Decode(f)
 		if err != nil {
 			log.Fatal(fmt.Errorf("fail to decode %s: %s", imgInf.path, err))
 		}
 		original, _ := ebiten.NewImageFromImage(i, ebiten.FilterDefault)
-		canvas, _ := ebiten.NewImage(imgInf.targetSize.width, imgInf.targetSize.height, ebiten.FilterDefault)
+		g.images[imgId].image, _ = ebiten.NewImage(imgInf.targetSize.width, imgInf.targetSize.height, ebiten.FilterDefault)
 		transform := ebiten.GeoM{}
 		transform.Scale(
+			// Scale from original size to target size calculated earlier
 			float64(imgInf.targetSize.width)/float64(imgInf.originalSize.width),
 			float64(imgInf.targetSize.height)/float64(imgInf.originalSize.height))
-		canvas.DrawImage(original, &ebiten.DrawImageOptions{
+		g.images[imgId].image.DrawImage(original, &ebiten.DrawImageOptions{
 			GeoM: transform,
 		})
-		g.images[imgId].image = canvas
 	}
 
+	// Tracker to make the camera follow player smoothly
 	g.cameraTracker = physics.NewSimpleTracker(g.camera, g.player, fWidth/2, fWidth/2, cameraVelocity)
 
-	// touch buttons
-	buttons := []touch.Button{
-		touch.NewButton(
-			leftTouchButtonId, geometry.Point{
-				X: 0,
-				Y: 0,
-			}, geometry.ClosedPolygon{
-				geometry.Point{
-					X: 0,
-					Y: 0,
-				},
-				geometry.Point{
-					X: fWidth / 2,
-					Y: 0,
-				},
-				geometry.Point{
-					X: fWidth / 2,
-					Y: fHeight,
-				},
-				geometry.Point{
-					X: 0,
-					Y: fHeight,
-				},
-			}),
-		touch.NewButton(
-			rightTouchButtonId, geometry.Point{
-				X: fWidth / 2,
-				Y: 0,
-			}, geometry.ClosedPolygon{
-				geometry.Point{
-					X: 0,
-					Y: 0,
-				},
-				geometry.Point{
-					X: fWidth / 2,
-					Y: 0,
-				},
-				geometry.Point{
-					X: fWidth / 2,
-					Y: fHeight,
-				},
-				geometry.Point{
-					X: 0,
-					Y: fHeight,
-				},
-			}),
-	}
-	for _, b := range buttons {
+	// Mount all touch buttons on the touch controller
+	for _, b := range allButtons(fWidth, fHeight) {
 		g.touch.Mount(b)
 	}
 	close(g.initComplete)
