@@ -2,7 +2,7 @@ package mark1android
 
 import (
 	"github.com/hajimehoshi/ebiten/mobile"
-	"goplanesclient/planes"
+	"goplanesclient/game"
 	"log"
 )
 
@@ -10,7 +10,7 @@ func init() {
 	// yourgame.Game must implement mobile.Game (= ebiten.Game) interface.
 	// For more details, see
 	// * https://pkg.go.dev/github.com/hajimehoshi/ebiten?tab=doc#Game
-	mobile.SetGame(planes.NewGame(false))
+	mobile.SetGame(game.NewGame(1, false, "", "")) // FIXME change NewGame arguments
 	log.Print("bind complete")
 }
 

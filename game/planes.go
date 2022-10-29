@@ -1,11 +1,17 @@
-package planes
+package game
 
 import (
 	"fmt"
 	"github.com/hajimehoshi/ebiten"
 	"github.com/hajimehoshi/ebiten/ebitenutil"
 	"github.com/rakyll/statik/fs"
+	"goplanesclient/geometry"
 	"goplanesclient/lobby"
+	"goplanesclient/physics"
+	"goplanesclient/players"
+	"goplanesclient/plot"
+	"goplanesclient/render"
+	"goplanesclient/touch"
 	"image"
 	_ "image/jpeg" // required for the image file loading to work. see ebitenutil.NewImageFromFile
 	_ "image/png"
@@ -35,52 +41,43 @@ const (
 
 const (
 	BgImageAssetId   = "tile"
-	IconImageAssetId = "player"
+	IconImageAssetId = "players"
 	BlipImageAssetId = "blip"
 
 	leftTouchButtonId  = "left"
 	rightTouchButtonId = "right"
 )
 
-func NewGame(debug bool) *Planes {
+func NewGame(playerId int, debug bool, host, path string) *Planes {
 	game := &Planes{
-		remotePlayers: make(map[int]*Player),
-		camera: &camera{
-			PointObject: &PointObject{
-				location: &Point{},
-				velocity: &Vector{},
-			},
-		},
-		Tick:            make(chan bool),
+		remotePlayers:   make(map[int]*players.Player),
+		tick:            make(chan bool),
 		viewPortLoading: sync.Once{},
 		initComplete:    make(chan bool),
 		debug:           debug,
-		touch: &touchController{
-			buttons: make(map[string]*buttonController),
-			state:   make(map[string]bool),
-		},
+		touch:           touch.NewTouchController(),
 	}
-	game.player = NewPlayer(0, defaultHeading, defaultX, defaultY)
+	game.player = players.NewPlayer(playerId, true, defaultX, defaultY, defaultHeading, 0, 0)
 	go game.watchLobby()
-	go lobby.JoinLobby(game)
+	go lobby.JoinLobby(game, host, path)
 	return game
 }
 
 type Planes struct {
-	player        *Player
-	remotePlayers map[int]*Player
+	player        *players.Player
+	remotePlayers map[int]*players.Player
 
 	debug bool
 
-	Tick  chan bool
+	tick  chan bool
 	input string
-	touch *touchController
+	touch touch.Controller
 
 	viewPortLoading sync.Once
 	initComplete    chan bool
 	images          map[string]*imageInfo
-	camera          *camera
-	cameraTracker   TrackerInterface
+	camera          *render.Camera
+	cameraTracker   physics.Tracker
 
 	radarRadius float64
 }
@@ -96,7 +93,7 @@ type imageInfo struct {
 func (g *Planes) Update(screen *ebiten.Image) error {
 	// update Player
 	g.input = ""
-	g.touch.ProcessTouch()
+	g.touch.Read()
 
 	if (ebiten.IsKeyPressed(ebiten.KeyLeft) && !ebiten.IsKeyPressed(ebiten.KeyRight)) ||
 		g.touch.IsButtonPressed(leftTouchButtonId) && !g.touch.IsButtonPressed(rightTouchButtonId) {
@@ -116,35 +113,35 @@ func (g *Planes) Update(screen *ebiten.Image) error {
 	g.player.Move(initialVelocity)
 
 	// broadcast location
-	g.Tick <- true
+	g.tick <- true
 
 	// draw
 	select {
 	case <-g.initComplete:
 	}
 	// update camera location
-	g.cameraTracker.UpdateTarget()
+	g.cameraTracker.UpdateFollower()
 	return g.Draw(screen)
 }
 func (g *Planes) Draw(screen *ebiten.Image) error {
 	// background
-	bgTranslation := g.camera.location.Vector().Negate() // negative of camera location
-	laySquareTiledImage(screen, g.images[BgImageAssetId].image, bgTranslation, g.camera.width, -1)
+	bgTranslation := g.camera.Location().Vector().Negate() // negative of camera location
+	plot.LaySquareTiledImage(screen, g.images[BgImageAssetId].image, bgTranslation, g.camera.Width, -1)
 
 	// player
-	g.camera.DrawObject(screen, g.images[IconImageAssetId].image, *g.player.PointObject)
+	g.camera.DrawObject(screen, g.images[IconImageAssetId].image, g.player.Mover)
 
 	// draw other players
 	for id := range g.remotePlayers {
-		g.camera.DrawObject(screen, g.images[IconImageAssetId].image, *g.remotePlayers[id].PointObject)
+		g.camera.DrawObject(screen, g.images[IconImageAssetId].image, g.remotePlayers[id].Mover)
 	}
 
 	// debug info
 	if g.debug {
-		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("player X: %f Y: %f H: %f", g.player.location.X, g.player.location.Y, degrees(g.player.heading)), 0, 0)
+		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("players X: %f Y: %f H: %f", g.player.Location().X, g.player.Location().Y, geometry.Degrees(g.player.Heading())), 0, 0)
 		ebitenutil.DebugPrintAt(screen, g.input, 100, 10)
 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("camera X: %f Y: %f",
-			g.camera.PointObject.location.X, g.camera.PointObject.location.Y), 0, 50)
+			g.camera.MovingObject.Location().X, g.camera.MovingObject.Location().Y), 0, 50)
 	}
 	return nil
 }
@@ -159,16 +156,16 @@ func (g *Planes) GetState() []byte {
 	return []byte(fmt.Sprintf(
 		"%d,%f,%f,%f,%f,%f",
 		g.player.Id,
-		g.player.location.X,
-		g.player.location.Y,
-		g.player.velocity.I,
-		g.player.velocity.J,
-		g.player.heading,
+		g.player.Location().X,
+		g.player.Location().Y,
+		g.player.Velocity().I,
+		g.player.Velocity().J,
+		g.player.Heading(),
 	))
 }
 
 func (g *Planes) GetTicker() *chan bool {
-	return &(g.Tick)
+	return &(g.tick)
 }
 
 func (g *Planes) updateRemotePlayer(dataByte []byte) {
@@ -184,11 +181,7 @@ func (g *Planes) updateRemotePlayer(dataByte []byte) {
 	player := g.remotePlayers[id]
 	if player == nil {
 		// add new p without value for Game
-		p := NewPlayer(id, h, x, y)
-		p.isRemotePlayer = true
-		p.velocity.I = vx
-		p.velocity.J = vy
-		p.heading = h
+		p := players.NewPlayer(id, false, x, y, h, vx, vy)
 		g.remotePlayers[id] = p
 		log.Println("Added Player", p.Id)
 	} else {
@@ -206,9 +199,9 @@ func (g *Planes) watchLobby() {
 }
 
 func (g *Planes) loadViewPort(outsideWidth, outsideHeight int) {
-	g.camera.width = float64(outsideWidth)
-	g.camera.height = float64(outsideHeight)
-	g.radarRadius = g.camera.height / 2
+	fWidth, fHeight := float64(outsideWidth), float64(outsideHeight)
+	g.camera = render.NewCamera(0, 0, 0, 0, 0, fWidth, fHeight)
+	g.radarRadius = fHeight / 2
 
 	// load images
 	iconSize := outsideHeight / 10
@@ -276,63 +269,57 @@ func (g *Planes) loadViewPort(outsideWidth, outsideHeight int) {
 		g.images[imgId].image = canvas
 	}
 
-	g.cameraTracker = NewSimpleTracker(g.camera, g.player, g.camera.width/2, g.camera.width/2, cameraVelocity)
+	g.cameraTracker = physics.NewSimpleTracker(g.camera, g.player, fWidth/2, fWidth/2, cameraVelocity)
 
 	// touch buttons
-	buttons := []touchButton{
-		{
-			id: leftTouchButtonId,
-			location: Point{
+	buttons := []touch.Button{
+		touch.NewButton(
+			leftTouchButtonId, geometry.Point{
 				X: 0,
 				Y: 0,
-			},
-			relativeGeometry: ClosedPolygon{
-				Point{
+			}, geometry.ClosedPolygon{
+				geometry.Point{
 					X: 0,
 					Y: 0,
 				},
-				Point{
-					X: g.camera.width / 2,
+				geometry.Point{
+					X: fWidth / 2,
 					Y: 0,
 				},
-				Point{
-					X: g.camera.width / 2,
-					Y: g.camera.height,
+				geometry.Point{
+					X: fWidth / 2,
+					Y: fHeight,
 				},
-				Point{
+				geometry.Point{
 					X: 0,
-					Y: g.camera.height,
+					Y: fHeight,
 				},
-			},
-		},
-		{
-			id: rightTouchButtonId,
-			location: Point{
-				X: g.camera.width / 2,
+			}),
+		touch.NewButton(
+			rightTouchButtonId, geometry.Point{
+				X: fWidth / 2,
 				Y: 0,
-			},
-			relativeGeometry: ClosedPolygon{
-				Point{
+			}, geometry.ClosedPolygon{
+				geometry.Point{
 					X: 0,
 					Y: 0,
 				},
-				Point{
-					X: g.camera.width / 2,
+				geometry.Point{
+					X: fWidth / 2,
 					Y: 0,
 				},
-				Point{
-					X: g.camera.width / 2,
-					Y: g.camera.height,
+				geometry.Point{
+					X: fWidth / 2,
+					Y: fHeight,
 				},
-				Point{
+				geometry.Point{
 					X: 0,
-					Y: g.camera.height,
+					Y: fHeight,
 				},
-			},
-		},
+			}),
 	}
 	for _, b := range buttons {
-		g.touch.Mount(&b)
+		g.touch.Mount(b)
 	}
 	close(g.initComplete)
 }

@@ -1,14 +1,15 @@
-package planes
+package physics
 
 import (
+	"goplanesclient/geometry"
 	"math"
 )
 
-type TrackerInterface interface {
-	UpdateTarget()
+type Tracker interface {
+	UpdateFollower()
 }
 
-func NewSimpleTracker(follower, leader PointObjectInterface, width, height, velocity float64) TrackerInterface {
+func NewSimpleTracker(follower, leader Mover, width, height, velocity float64) Tracker {
 	return &SimpleTracker{
 		follower: follower,
 		leader:   leader,
@@ -19,25 +20,25 @@ func NewSimpleTracker(follower, leader PointObjectInterface, width, height, velo
 }
 
 type SimpleTracker struct {
-	follower PointObjectInterface
-	leader   PointObjectInterface
+	follower Mover
+	leader   Mover
 	maxX     float64
 	maxY     float64
 	velocity float64
 }
 
-func (t *SimpleTracker) UpdateTarget() {
-	d := AxialDistance(t.follower.Location(), t.leader.Location())
+func (t *SimpleTracker) UpdateFollower() {
+	d := geometry.AxialDistance(t.follower.Location(), t.leader.Location())
 	if math.Abs(d.I) > t.maxX || math.Abs(d.J) > t.maxY {
-		b := BisectRectangle(t.follower.Location(), t.leader.Location(), Point{
+		b := geometry.BisectRectangle(t.follower.Location(), t.leader.Location(), geometry.Point{
 			X: t.follower.Location().X - t.maxX,
 			Y: t.follower.Location().Y - t.maxY,
-		}, Point{
+		}, geometry.Point{
 			X: t.follower.Location().X + t.maxX,
 			Y: t.follower.Location().Y + t.maxY,
 		})
-		v := AxialDistance(b, t.leader.Location())
-		h := Theta(v)
+		v := geometry.AxialDistance(b, t.leader.Location())
+		h := geometry.Theta(v)
 		t.follower.Turn(h)
 		t.follower.Move(v.Size() * t.velocity)
 	}
