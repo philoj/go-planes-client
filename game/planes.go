@@ -141,7 +141,7 @@ func (g *Planes) Draw(screen *ebiten.Image) error {
 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("players X: %f Y: %f H: %f", g.player.Location().X, g.player.Location().Y, geometry.Degrees(g.player.Heading())), 0, 0)
 		ebitenutil.DebugPrintAt(screen, g.input, 100, 10)
 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("camera X: %f Y: %f",
-			g.camera.MovingObject.Location().X, g.camera.MovingObject.Location().Y), 0, 50)
+			g.camera.Mover.Location().X, g.camera.Mover.Location().Y), 0, 50)
 	}
 	return nil
 }

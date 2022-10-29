@@ -9,7 +9,7 @@ import (
 
 func NewCamera(x, y, i, j, theta, w, h float64) *Camera {
 	return &Camera{
-		MovingObject: physics.NewMovingObject(x, y, i, j, theta),
+		Mover: physics.NewMover(x, y, i, j, theta),
 		Rectangle: geometry.Rectangle{
 			Width:  w,
 			Height: h,
@@ -19,21 +19,21 @@ func NewCamera(x, y, i, j, theta, w, h float64) *Camera {
 
 type Camera struct {
 	geometry.Rectangle
-	*physics.MovingObject
+	physics.Mover
 }
 
 // todo use top, bottom, etc in ui context
 func (c *Camera) LeftBoundary() float64 {
-	return c.MovingObject.Location().X - (c.Width / 2)
+	return c.Mover.Location().X - (c.Width / 2)
 }
 func (c *Camera) RightBoundary() float64 {
-	return c.MovingObject.Location().X + (c.Width / 2)
+	return c.Mover.Location().X + (c.Width / 2)
 }
 func (c *Camera) BottomBoundary() float64 {
-	return c.MovingObject.Location().Y - (c.Height / 2)
+	return c.Mover.Location().Y - (c.Height / 2)
 }
 func (c *Camera) TopBoundary() float64 {
-	return c.MovingObject.Location().Y + (c.Height / 2)
+	return c.Mover.Location().Y + (c.Height / 2)
 }
 func (c *Camera) Origin() geometry.Point {
 	return geometry.Point{
