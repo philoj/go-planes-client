@@ -16,7 +16,6 @@ import (
 	_ "image/jpeg" // required for the image file loading to work. see ebitenutil.NewImageFromFile
 	_ "image/png"
 	"log"
-	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,38 +23,14 @@ import (
 	_ "goplanesclient/statik"
 )
 
-const (
-	bgImageSize         = 5000.0
-	playerIconImageSize = 640.0
-	blipIconImageSize   = 320.0
-
-	initialVelocity     = 4
-	defaultAcceleration = 1
-	defaultRotation     = 0.03
-	cameraVelocity      = 0.1
-
-	defaultHeading = -math.Pi / 2
-	defaultX       = 0.0
-	defaultY       = 0.0
-)
-
-const (
-	BgImageAssetId   = "tile"
-	IconImageAssetId = "players"
-	BlipImageAssetId = "blip"
-
-	leftTouchButtonId  = "left"
-	rightTouchButtonId = "right"
-)
-
 func NewGame(playerId int, debug bool, host, path string) *Planes {
 	game := &Planes{
-		remotePlayers:   make(map[int]*players.Player),
-		tick:            make(chan bool),
-		viewPortLoading: sync.Once{},
-		initComplete:    make(chan bool),
-		debug:           debug,
-		touch:           touch.NewTouchController(),
+		remotePlayers:    make(map[int]*players.Player),
+		tick:             make(chan bool),
+		loadViewportOnce: sync.Once{},
+		initComplete:     make(chan bool),
+		debug:            debug,
+		touch:            touch.NewTouchController(),
 	}
 	game.player = players.NewPlayer(playerId, true, defaultX, defaultY, defaultHeading, 0, 0)
 	go game.watchLobby()
@@ -73,21 +48,13 @@ type Planes struct {
 	input string
 	touch touch.Controller
 
-	viewPortLoading sync.Once
-	initComplete    chan bool
-	images          map[string]*imageInfo
-	camera          *render.Camera
-	cameraTracker   physics.Tracker
+	loadViewportOnce sync.Once
+	initComplete     chan bool
+	images           map[string]*imageInfo
+	camera           *render.Camera
+	cameraTracker    physics.Tracker
 
 	radarRadius float64
-}
-type imageSize struct {
-	width, height int
-}
-type imageInfo struct {
-	path                     string
-	originalSize, targetSize imageSize
-	image                    *ebiten.Image
 }
 
 func (g *Planes) Update(screen *ebiten.Image) error {
@@ -148,7 +115,7 @@ func (g *Planes) Draw(screen *ebiten.Image) error {
 
 func (g *Planes) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
 	// viewport is initialized in first call
-	go g.viewPortLoading.Do(func() { g.loadViewPort(outsideWidth, outsideHeight) })
+	go g.loadViewportOnce.Do(func() { g.loadViewPort(outsideWidth, outsideHeight) })
 	return outsideWidth, outsideHeight
 }
 
@@ -189,6 +156,7 @@ func (g *Planes) updateRemotePlayer(dataByte []byte) {
 		player.Reset(x, y, vx, vy, h)
 	}
 }
+
 func (g *Planes) watchLobby() {
 	for {
 		select {
