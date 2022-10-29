@@ -184,7 +184,7 @@ func (g *Planes) loadViewPort(outsideWidth, outsideHeight int) {
 			g.images[imgId].targetSize.width, g.images[imgId].targetSize.height = size, size
 			break
 		case IconImageAssetId:
-			g.images[imgId].targetSize.width, g.images[imgId].targetSize.height = playerIconImageSize, playerIconImageSize
+			g.images[imgId].targetSize.width, g.images[imgId].targetSize.height = iconSize, iconSize
 			break
 		case BlipImageAssetId:
 			g.images[imgId].targetSize.width, g.images[imgId].targetSize.height = iconSize, iconSize
