@@ -8,10 +8,9 @@ Execute by:
 
 This requires game server to be started already.
 
-# Screenshots
+# Preview
 
-![](screenshots/Screenshot-single-1.png)
-![](screenshots/Screenshot-single-2.png)
+https://user-images.githubusercontent.com/13179046/198898565-b7c96ac9-24f2-4bb5-bf1c-45f057edb7ef.mov
 
 # Repacking assets
 Any changes to the asset files requires repacking the embedded statik sub package.
