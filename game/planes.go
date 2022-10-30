@@ -177,6 +177,7 @@ func (g *Planes) loadViewPort() {
 	for imgId, imgInf := range g.images {
 		log.Print(imgId)
 		// Calculate image render sizes
+		// TODO instead of zooming into the viewport, make icon size consistent across displays
 		g.images[imgId].targetSize = imageSize{}
 		switch imgId {
 		case bgImageAssetId:

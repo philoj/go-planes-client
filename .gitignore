@@ -4,4 +4,4 @@ tmp
 *\.aar
 *\.jar
 build/*
-dist/*
+build-platforms/js/dist/*

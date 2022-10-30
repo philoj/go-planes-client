@@ -22,6 +22,12 @@ Repacking can be done by running:
 
 # Webassembly
 
+Copy `wasm_exec.js`:
+
+`cp $GOROOT/misc/wasm/wasm_exec.js build-platforms/js/dist/`
+
 Compile by running:
 
-`$ GOOS=js GOARCH=wasm go build -o dist/main.wasm`
+`$ GOOS=js GOARCH=wasm go build -o build-platforms/js/dist/main.wasm`
+
+And server the folder `build-platforms/js` via any file server
