@@ -221,7 +221,7 @@ func (g *Planes) loadViewPort() {
 	}
 
 	// Tracker to make the camera follow player smoothly
-	g.cameraTracker = physics.NewSimpleTracker(g.camera, g.player, fWidth/2, fWidth/2, cameraVelocity)
+	g.cameraTracker = physics.NewSimpleTracker(g.camera, g.player, fWidth/2, fHeight/2, cameraVelocity)
 
 	// Mount all touch buttons on the touch controller
 	for _, b := range allButtons(fWidth, fHeight) {
