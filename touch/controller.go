@@ -1,9 +1,8 @@
 package touch
 
 import (
-	"github.com/hajimehoshi/ebiten"
+	"github.com/hajimehoshi/ebiten/v2"
 	"goplanesclient/geometry"
-	"time"
 )
 
 type Controller interface {
@@ -19,8 +18,6 @@ func NewTouchController() Controller {
 		state:   make(map[string]bool),
 	}
 }
-
-const refreshInterval = 200 * time.Millisecond
 
 type touchController struct {
 	buttons map[string]Button

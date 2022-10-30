@@ -19,3 +19,9 @@ Any changes to the asset files requires repacking the embedded statik sub packag
 Repacking can be done by running:
 
 `$ statik -src=./assets -include=*.jpg,*.png`
+
+# Webassembly
+
+Compile by running:
+
+`$ GOOS=js GOARCH=wasm go build -o dist/main.wasm`

@@ -1,6 +1,6 @@
 package game
 
-import "github.com/hajimehoshi/ebiten"
+import "github.com/hajimehoshi/ebiten/v2"
 
 type imageSize struct {
 	width, height int

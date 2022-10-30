@@ -2,7 +2,7 @@ package mark1android
 
 import (
 	"fmt"
-	"github.com/hajimehoshi/ebiten/mobile"
+	"github.com/hajimehoshi/ebiten/v2/mobile"
 	"goplanesclient/game"
 	"log"
 )

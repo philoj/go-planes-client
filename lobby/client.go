@@ -1,7 +1,7 @@
 package lobby
 
 import (
-	"github.com/gorilla/websocket"
+	"goplanesclient/socketconnector"
 	"log"
 	"net/url"
 	"os"
@@ -28,7 +28,7 @@ func JoinLobby(game GameStateBroadcaster, host, path string) {
 	//log.Printf("connecting to %s", u.String())
 
 	done := make(chan struct{})
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	c, err := socketconnector.NewSocketConnector(u.String())
 	if err == nil {
 		lobbyStatus = true
 		defer c.Close()
@@ -36,7 +36,7 @@ func JoinLobby(game GameStateBroadcaster, host, path string) {
 		go func() {
 			defer close(done)
 			for {
-				_, gameState, err := c.ReadMessage()
+				gameState, err := c.ReadMessage()
 				if err != nil {
 					log.Print("read fail:", err)
 					lobbyStatus = false
@@ -55,9 +55,9 @@ func JoinLobby(game GameStateBroadcaster, host, path string) {
 		select {
 		case <-done:
 			return
-		case _ = <-ticker:
+		case <-ticker:
 			if lobbyStatus {
-				err := c.WriteMessage(websocket.TextMessage, game.GetState())
+				err := c.WriteMessage(game.GetState())
 				if err != nil {
 					log.Print("write fail:", err)
 					lobbyStatus = false
@@ -71,7 +71,7 @@ func JoinLobby(game GameStateBroadcaster, host, path string) {
 			// Cleanly close the connection by sending a close message and then
 			// waiting (with timeout) for the lobby to close the connection.
 			if lobbyStatus {
-				err := c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+				err := c.Close()
 				if err != nil {
 					log.Print("write close fail", err)
 					lobbyStatus = false
@@ -79,6 +79,7 @@ func JoinLobby(game GameStateBroadcaster, host, path string) {
 			}
 			select {
 			case <-done:
+				log.Println("<-done")
 			case <-time.After(time.Second):
 			}
 			return

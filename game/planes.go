@@ -2,8 +2,8 @@ package game
 
 import (
 	"fmt"
-	"github.com/hajimehoshi/ebiten"
-	"github.com/hajimehoshi/ebiten/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/rakyll/statik/fs"
 	"goplanesclient/geometry"
 	"goplanesclient/lobby"
@@ -11,6 +11,7 @@ import (
 	"goplanesclient/players"
 	"goplanesclient/plot"
 	"goplanesclient/render"
+	_ "goplanesclient/statik"
 	"goplanesclient/touch"
 	"image"
 	_ "image/jpeg" // required for the image file loading to work. see ebitenutil.NewImageFromFile
@@ -18,20 +19,17 @@ import (
 	"log"
 	"strconv"
 	"strings"
-	"sync"
-
-	_ "goplanesclient/statik"
+	"time"
 )
 
 func NewGame(playerId int, debug bool, host, path string) *Planes {
 	game := &Planes{
-		remotePlayers:    make(map[int]*players.Player),
-		tick:             make(chan bool),
-		loadViewportOnce: sync.Once{},
-		initComplete:     make(chan bool),
-		debug:            debug,
-		touch:            touch.NewTouchController(),
-		images:           images,
+		remotePlayers: make(map[int]*players.Player),
+		tick:          make(chan bool, 1000),
+		frameRate:     time.NewTicker(30 * time.Millisecond),
+		debug:         debug,
+		touch:         touch.NewTouchController(),
+		images:        images,
 	}
 	game.player = players.NewPlayer(playerId, true, defaultX, defaultY, defaultHeading, 0, 0)
 	go game.watchLobby()
@@ -45,20 +43,20 @@ type Planes struct {
 
 	debug bool
 
-	tick  chan bool
-	input string
-	touch touch.Controller
+	tick      chan bool
+	input     string
+	touch     touch.Controller
+	frameRate *time.Ticker
 
-	loadViewportOnce sync.Once
-	initComplete     chan bool
-	images           map[string]*imageInfo
-	camera           *render.Camera
-	cameraTracker    physics.Tracker
+	images        map[string]*imageInfo
+	camera        *render.Camera
+	cameraTracker physics.Tracker
 
-	radarRadius float64
+	radarRadius                 float64
+	outsideWidth, outsideHeight int
 }
 
-func (g *Planes) Update(screen *ebiten.Image) error {
+func (g *Planes) Update() error {
 	// update Player
 	g.input = ""
 	g.touch.Read()
@@ -83,14 +81,12 @@ func (g *Planes) Update(screen *ebiten.Image) error {
 	// broadcast location
 	g.tick <- true
 
-	// draw
-	<-g.initComplete
-
 	// update camera location
 	g.cameraTracker.UpdateFollower()
-	return g.Draw(screen)
+	return nil
 }
-func (g *Planes) Draw(screen *ebiten.Image) error {
+
+func (g *Planes) Draw(screen *ebiten.Image) {
 	// background
 	bgTranslation := g.camera.Location().Negate() // negative of camera location
 	plot.LaySquareTiledImage(screen, g.images[bgImageAssetId].image, bgTranslation, g.camera.Width, -1)
@@ -110,12 +106,14 @@ func (g *Planes) Draw(screen *ebiten.Image) error {
 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("camera X: %f Y: %f",
 			g.camera.Mover.Location().I, g.camera.Mover.Location().J), 0, 50)
 	}
-	return nil
 }
 
 func (g *Planes) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	// viewport is initialized in first call
-	go g.loadViewportOnce.Do(func() { g.loadViewPort(outsideWidth, outsideHeight) })
+	if outsideHeight != g.outsideHeight || outsideWidth != g.outsideWidth {
+		// reload viewport
+		g.outsideWidth, g.outsideHeight = outsideWidth, outsideHeight
+		g.loadViewPort()
+	}
 	return outsideWidth, outsideHeight
 }
 
@@ -164,8 +162,9 @@ func (g *Planes) watchLobby() {
 	}
 }
 
-func (g *Planes) loadViewPort(outsideWidth, outsideHeight int) {
-	fWidth, fHeight := float64(outsideWidth), float64(outsideHeight)
+func (g *Planes) loadViewPort() {
+	fWidth, fHeight := float64(g.outsideWidth), float64(g.outsideHeight)
+	log.Print(fWidth, fHeight)
 	g.camera = render.NewCamera(0, 0, 0, 0, 0, fWidth, fHeight)
 	g.radarRadius = fHeight / 2
 
@@ -174,13 +173,14 @@ func (g *Planes) loadViewPort(outsideWidth, outsideHeight int) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	iconSize := outsideHeight / 10
+	iconSize := g.outsideHeight / 10
 	for imgId, imgInf := range g.images {
+		log.Print(imgId)
 		// Calculate image render sizes
 		g.images[imgId].targetSize = imageSize{}
 		switch imgId {
 		case bgImageAssetId:
-			size := outsideWidth * 3
+			size := g.outsideWidth * 3
 			g.images[imgId].targetSize.width, g.images[imgId].targetSize.height = size, size
 			break
 		case iconImageAssetId:
@@ -208,8 +208,8 @@ func (g *Planes) loadViewPort(outsideWidth, outsideHeight int) {
 		if err != nil {
 			log.Fatal(fmt.Errorf("fail to decode %s: %s", imgInf.path, err))
 		}
-		original, _ := ebiten.NewImageFromImage(i, ebiten.FilterDefault)
-		g.images[imgId].image, _ = ebiten.NewImage(imgInf.targetSize.width, imgInf.targetSize.height, ebiten.FilterDefault)
+		original := ebiten.NewImageFromImage(i)
+		g.images[imgId].image = ebiten.NewImage(imgInf.targetSize.width, imgInf.targetSize.height)
 		transform := ebiten.GeoM{}
 		transform.Scale(
 			// Scale from original size to target size calculated earlier
@@ -227,5 +227,4 @@ func (g *Planes) loadViewPort(outsideWidth, outsideHeight int) {
 	for _, b := range allButtons(fWidth, fHeight) {
 		g.touch.Mount(b)
 	}
-	close(g.initComplete)
 }
