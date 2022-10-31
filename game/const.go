@@ -3,10 +3,6 @@ package game
 import "math"
 
 const (
-	bgImageSize         = 5000.0
-	playerIconImageSize = 640.0
-	blipIconImageSize   = 320.0
-
 	initialVelocity     = 4
 	defaultAcceleration = 1
 	defaultRotation     = 0.03

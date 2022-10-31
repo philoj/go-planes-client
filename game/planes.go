@@ -56,7 +56,11 @@ type Planes struct {
 	outsideWidth, outsideHeight int
 }
 
+var updateSum, updateCount int64
+
 func (g *Planes) Update() error {
+	log.Print("TPS", ebiten.TPS(), ebiten.ActualTPS(), ebiten.ActualFPS())
+	t := time.Now()
 	// update Player
 	g.input = ""
 	g.touch.Read()
@@ -83,13 +87,19 @@ func (g *Planes) Update() error {
 
 	// update camera location
 	g.cameraTracker.UpdateFollower()
+	d := time.Now().Sub(t)
+	updateSum += int64(d)
+	updateCount++
+	log.Print("avg update:", updateSum/updateCount)
 	return nil
 }
 
+var drawSum, drawCount int64
+
 func (g *Planes) Draw(screen *ebiten.Image) {
+	t := time.Now()
 	// background
-	bgTranslation := g.camera.Location().Negate() // negative of camera location
-	plot.LaySquareTiledImage(screen, g.images[bgImageAssetId].image, bgTranslation, g.camera.Width, -1)
+	plot.LaySquareTiles(screen, g.images[bgImageAssetId].image, g.camera.Location().Negate())
 
 	// player
 	g.camera.DrawObject(screen, g.images[iconImageAssetId].image, g.player.Mover)
@@ -102,10 +112,13 @@ func (g *Planes) Draw(screen *ebiten.Image) {
 	// debug info
 	if g.debug {
 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("players X: %f Y: %f H: %f", g.player.Location().I, g.player.Location().J, geometry.Degrees(g.player.Heading())), 0, 0)
-		ebitenutil.DebugPrintAt(screen, g.input, 100, 10)
 		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("camera X: %f Y: %f",
 			g.camera.Mover.Location().I, g.camera.Mover.Location().J), 0, 50)
 	}
+	d := time.Now().Sub(t)
+	drawSum += int64(d)
+	drawCount++
+	log.Print("avg draw:", drawSum/drawCount)
 }
 
 func (g *Planes) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -173,24 +186,8 @@ func (g *Planes) loadViewPort() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	iconSize := g.outsideHeight / 10
 	for imgId, imgInf := range g.images {
 		log.Print(imgId)
-		// Calculate image render sizes
-		// TODO instead of zooming into the viewport, make icon size consistent across displays
-		g.images[imgId].targetSize = imageSize{}
-		switch imgId {
-		case bgImageAssetId:
-			size := g.outsideWidth * 3
-			g.images[imgId].targetSize.width, g.images[imgId].targetSize.height = size, size
-			break
-		case iconImageAssetId:
-			g.images[imgId].targetSize.width, g.images[imgId].targetSize.height = iconSize, iconSize
-			break
-		case blipImageAssetId:
-			g.images[imgId].targetSize.width, g.images[imgId].targetSize.height = iconSize, iconSize
-			break
-		}
 
 		// Open image files from embedded assets
 		f, err := embeddedFs.Open(imgInf.path)
@@ -209,16 +206,7 @@ func (g *Planes) loadViewPort() {
 		if err != nil {
 			log.Fatal(fmt.Errorf("fail to decode %s: %s", imgInf.path, err))
 		}
-		original := ebiten.NewImageFromImage(i)
-		g.images[imgId].image = ebiten.NewImage(imgInf.targetSize.width, imgInf.targetSize.height)
-		transform := ebiten.GeoM{}
-		transform.Scale(
-			// Scale from original size to target size calculated earlier
-			float64(imgInf.targetSize.width)/float64(imgInf.originalSize.width),
-			float64(imgInf.targetSize.height)/float64(imgInf.originalSize.height))
-		g.images[imgId].image.DrawImage(original, &ebiten.DrawImageOptions{
-			GeoM: transform,
-		})
+		g.images[imgId].image = ebiten.NewImageFromImage(i)
 	}
 
 	// Tracker to make the camera follow player smoothly

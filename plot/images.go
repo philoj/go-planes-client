@@ -14,16 +14,16 @@ func DrawImage(screen, img *ebiten.Image, translate geometry.Vector, heading flo
 	rotScale.GeoM.Translate(translate.I, translate.J)
 	screen.DrawImage(img, rotScale)
 }
-func LaySquareTiledImage(screen, tile *ebiten.Image, originalTranslation geometry.Vector, tileSize float64, offsetCount int) {
-	bgOptions := &ebiten.DrawImageOptions{}
-	oc := float64(offsetCount)
-	equivalentTranslation := geometry.Vector{
-		I: math.Mod(originalTranslation.I, tileSize),
-		J: math.Mod(originalTranslation.J, tileSize),
-	}.Add(geometry.Vector{
-		I: tileSize * oc,
-		J: tileSize * oc,
-	})
-	bgOptions.GeoM.Translate(equivalentTranslation.I, equivalentTranslation.J)
-	screen.DrawImage(tile, bgOptions)
+
+func LaySquareTiles(screen, tile *ebiten.Image, originalTranslation geometry.Vector) {
+	w, h := screen.Size()
+	tileSize := float64(tile.Bounds().Dx())
+	dx, dy := math.Mod(originalTranslation.I, tileSize), math.Mod(originalTranslation.J, tileSize)
+	for x := -tileSize; x <= float64(w)+tileSize; x += tileSize {
+		for y := -tileSize; y <= float64(h)+tileSize; y += tileSize {
+			opt := &ebiten.DrawImageOptions{}
+			opt.GeoM.Translate(x+dx, y+dy)
+			screen.DrawImage(tile, opt)
+		}
+	}
 }
