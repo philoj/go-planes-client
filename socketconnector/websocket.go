@@ -28,7 +28,6 @@ func (s *socket) WriteMessage(data []byte) error {
 
 func NewSocketConnector(url string) (Connector, error) {
 	c, _, err := websocket.DefaultDialer.Dial(url, nil)
-	websocket.Upgrader{}
 	s := (*socket)(c)
 	return s, err
 }
